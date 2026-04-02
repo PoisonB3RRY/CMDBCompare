@@ -1,0 +1,35 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: cmdb-compare-service
+
+  datasource:
+    url: jdbc:mysql://127.0.0.1:3306/cmdb_compare?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
+    username: root
+    password: jianjian123
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+logging:
+  level:
+    root: INFO
+    com.cmdb.compare: DEBUG
+    org.apache.spark: WARN
+
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+obs:
+  endpoint: obs.myhwclouds.com
+  access-key: YOUR_AK
+  secret-key: YOUR_SK
+
+livy:
+  url: http://localhost:8998
+  job-jar: obs://your-bucket/spark-jobs/cmdb-compare-service-0.0.1-SNAPSHOT.jar
+
+
