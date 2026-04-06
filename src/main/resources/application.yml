@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: 8888
 
 spring:
   application:
@@ -35,7 +35,5 @@ livy:
   # local[*] keeps file:/// CSV and Excel output on the Livy container filesystem (see plan).
   spark-conf:
     "spark.master": "local[*]"
-    "spark.submit.deployMode": "client"
-    "spark.yarn.submit.waitAppCompletion": "false"
 
 

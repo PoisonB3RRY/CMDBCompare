@@ -20,7 +20,7 @@ import java.util.UUID;
 @RequestMapping("/api/files")
 public class FileUploadController {
 
-    private final String DATA_DIR = "./data";
+    private final String DATA_DIR = "./spark-cluster/data";
 
     @PostMapping("/upload")
     public ResponseEntity<Map<String, String>> uploadFile(@RequestParam("file") MultipartFile file) {

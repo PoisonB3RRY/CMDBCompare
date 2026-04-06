@@ -5,3 +5,4 @@ target/
 .project
 .classpath
 .factorypath
+front-vue/node_modules/

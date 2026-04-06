@@ -22,6 +22,9 @@ USER root
 COPY --from=livy-unpack /opt/livy /opt/livy
 COPY livy.conf /opt/livy/conf/livy.conf
 
+# 安装 Apache POI Excel 生成所需的系统字体引擎依赖
+RUN apt-get update && apt-get install -y fontconfig libfreetype6 && rm -rf /var/lib/apt/lists/*
+
 # 核心修改：确保 bin 目录下的脚本具有执行权限
 RUN chmod +x /opt/livy/bin/*
 

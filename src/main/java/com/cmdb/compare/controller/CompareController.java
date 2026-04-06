@@ -35,7 +35,9 @@ public class CompareController {
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.internalServerError().build();
+            Map<String, String> err = new HashMap<>();
+            err.put("error", e.getClass().getName() + ": " + e.getMessage());
+            return ResponseEntity.internalServerError().body(err);
         }
     }
 

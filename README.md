@@ -71,33 +71,63 @@ CMDBComparision
 
 ---
 
-## 5. 快速开始与部署
+## 5. 快速部署 (华为云 OBS 对象存储生产环境)
 
-### 5.1 数据库初始化
-执行 `src/main/resources/schema.sql` 完成任务表和配置表的创建。
+为了承接千万级数据量，生产环境强烈建议将存储底层切换回 OBS 对象存储桶。
 
-### 5.2 配置文件修改
+### 5.1 配置文件修改
 编辑 `application.yml`：
 - 修改 `spring.datasource` 下的连接信息。
-- 修改 `obs` 部分的密钥与 endpoint。
-- 修改 `livy.url` 为您真实的 Livy 控制台地址。
+- 修改 `obs` 部分的真实专属密钥与 endpoint。
+- 修改 `livy.url` 为您生产环境的华为云 DLI / 真实 Livy 控制台地址。
 
-### 5.3 打包与上传
-1. 执行 `mvn clean package`。
-2. 将 `target/cmdb-compare-service-0.0.1-SNAPSHOT.jar` 上传至 OBS。
-3. 将该 OBS 路径填入 `application.yml` 的 `livy.job-jar` 中。
+### 5.2 打包与云端上传
+1. 执行 `mvn clean package -DskipTests` 打包得出 Thin Jar。
+2. 将 `target/cmdb-compare-service-0.0.1-SNAPSHOT-spark-job.jar` 上传至您的 OBS 桶中。
+3. 把该 OBS 的绝对路径填入后端 `application.yml` 的 `livy.job-jar` 属性中（例：`obs://my-bucket/jars/cmdb-compare-service-xxx.jar`）。
 
-### 5.4 提交任务示例
+### 5.3 提交云端比对任务
+此时前端无需依赖本地 `./data`，可直接下发携带 `obs://` 的存储源地址交由集群直接读写：
 ```json
 POST /api/compare/run
 {
-  "sourceFilePath": "obs://bucket/source.csv",
-  "targetFilePath": "obs://bucket/target.csv",
+  "sourceFilePath": "obs://my-bucket/source.csv",
+  "targetFilePath": "obs://my-bucket/target.csv",
   "primaryKeys": ["id"],
   "sourceFilterExpression": "status == 'ACTIVE' && age > 18",
   "targetFilterExpression": "status == 'ACTIVE'",
-  "outputDirPath": "obs://bucket/results/"
+  "outputDirPath": "obs://my-bucket/results/"
 }
 ```
-返回：`{"taskId": "xxxx-xxxx", "status": "SUBMITTED"}`。
-之后调用 `GET /api/compare/status/{taskId}` 获取进度。
+
+---
+
+## 6. 本地 Windows 快速联调测试 (基于 Docker Compose)
+
+为了方便在尚未申请到 OBS 桶或不联网的本地开发环境中演练流水线，本项目内置了全套 `spark-cluster` 镜像设施来代替真实的 OBS 读写。
+
+### 6.1 启动联调环境
+1. 确认 `livy.job-jar: "file:///data/cmdb-compare-service...jar"` 处于本地模式。
+2. 将刚才编译的热乎打包件拷贝到虚拟挂载口：
+   `Copy-Item .\target\cmdb-compare-service-0.0.1-SNAPSHOT-spark-job.jar .\spark-cluster\data\`
+3. 启动 `CmdbCompareApplication` 和 `npm run dev`。
+4. 拉起沙箱计算集群：
+   `cd spark-cluster && docker compose up -d --build`
+
+### 6.2 联调机制说明
+本地上传的文件及 Spark 结果均保存在本机的 `spark-cluster/data/` 目录下，扮演了一个 “虚拟局域 OBS” 的作用。
+
+---
+
+## 7. 排雷与避坑架构说明 💣
+
+在微服务拆分及 Spark 打通的过程中存在几个典型的坑，开发者接手代码时应重点关注：
+
+| 错误特征 / 异常信息 | 架构症结与修复说明 |
+| :--- | :--- |
+| **8080或8082等端口启动即报被占用** | **症结**：Windows 的 NAT 网络预留了超大范围端口栈。如果在同一虚拟机拉起内嵌 Spark Session 会造成无法干预的端口死锁。<br>**解决**：彻底将 Spring Boot（设为 `8888`）与远端 Spark Worker（通过 Livy 跑在 Docker）剥离，实现资源隔绝。 |
+| **Livy 报错: `Local path cannot be added to user sessions`** | **症结**：Livy 原生安全沙箱机制，拦截非白名单目录下的本地 file:// 提交。<br>**解决**：已在 `livy/livy.conf` 中追加一行 `livy.file.local-dir-whitelist = /data/` 放行。 |
+| **Livy 报错: `Path does not exist` (明明文件存在)** | **症结**：Docker 容器双向映射盲区。Spring 如果保存在 `./data`，Docker 中是对应不到 `spark-cluster/data` 的。<br>**解决**：在 `FileUploadController` 中强制将接口级别的 `DATA_DIR` 定位为对应的 `./spark-cluster/data` 目录。 |
+| **Spark 报错: `Invalid usage of '*' in Filter`** | **症结**：Spark 3.x 语法硬校验，严禁在 `filter` 算子嵌套的 UDF 中使用 `to_json(struct(col("*")))` 星号枚举。<br>**解决**：通过反射显式使用 `df.columns()` 循环读取全列进行 Json 动态打包传递。 |
+| **POI 报 `UnsatisfiedLinkError: libfreetype.so.6`** | **症结**：Livy 使用的基础纯净版 OpenJDK 容器缺少 Linux C++ AWT GUI 字体渲染库，导致 Excel 自适应宽度排版时直接宕机。<br>**解决**：已在 `livy/Dockerfile` 添加 `RUN apt-get install -y fontconfig libfreetype6` 弥补。 |
+| **前端一直卡在轮询，没有出来按钮** | **症结**：后端状态机返回了 `FINISHED` 标识，但前端早前 UI 硬编码仅匹配 `SUCCESS`，导致无渲染。<br>**解决**：已修改 `App.vue` 中的 v-if 指令支持双状态映射，支持 HMR 热重载直接呼出按钮。 |

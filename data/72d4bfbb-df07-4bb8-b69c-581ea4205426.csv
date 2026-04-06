@@ -1,0 +1,5 @@
+id,name,age,city,status
+1,Alice,30,NYC,ACTIVE
+2,Bob,25,LA,INACTIVE
+3,Charlie,35,SF,ACTIVE
+4,Dave,40,Seattle,ACTIVE

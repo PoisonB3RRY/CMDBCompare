@@ -79,7 +79,7 @@
         </a-button>
       </div>
       
-      <div v-if="taskStatus === 'SUCCESS'" style="text-align: center; padding: 20px;">
+      <div v-if="taskStatus === 'SUCCESS' || taskStatus === 'FINISHED'" style="text-align: center; padding: 20px;">
          <CheckCircleOutlined style="font-size: 48px; color: #4ade80;" />
          <h3 style="color: white; margin-top: 20px;">Reconciliation Completed Successfully!</h3>
          
@@ -101,7 +101,7 @@ import { message } from 'ant-design-vue';
 import { InboxOutlined, RocketOutlined, PlayCircleOutlined, CheckCircleOutlined, DownloadOutlined } from '@ant-design/icons-vue';
 import axios from 'axios';
 
-const apiBase = 'http://localhost:8080/api';
+const apiBase = 'http://localhost:8888/api';
 
 const currentStep = ref(0);
 const pkInput = ref('');

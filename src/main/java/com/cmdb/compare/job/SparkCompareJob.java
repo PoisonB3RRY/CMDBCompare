@@ -128,7 +128,11 @@ public class SparkCompareJob {
     }
 
     private static Column Anthony_toJson(Dataset<Row> df) {
-        return to_json(struct(col("*")));
+        java.util.List<Column> cols = new java.util.ArrayList<>();
+        for (String c : df.columns()) {
+            cols.add(col(c));
+        }
+        return to_json(struct(cols.toArray(new Column[0])));
     }
 
     private static void export(SparkSession spark, Dataset<Row> sOut, Dataset<Row> tOut, Dataset<Row> diff,
