@@ -12,7 +12,7 @@ import org.springframework.stereotype.Service;
 import javax.annotation.PostConstruct;
 import java.util.Map;
 
-@Service
+// @Service // Commented out to prevent Spark JVM initialization clashes. Logic is executed remotely in Livy.
 public class RuleEngineService {
 
     @Autowired
@@ -33,11 +33,12 @@ public class RuleEngineService {
 
             try {
                 // parse JSON string to map
-                Map<String, Object> env = mapper.readValue(rowJson, new TypeReference<Map<String, Object>>() {});
-                
+                Map<String, Object> env = mapper.readValue(rowJson, new TypeReference<Map<String, Object>>() {
+                });
+
                 // execute rule with caching enabled for high performance
                 Object result = AviatorEvaluator.execute(expression, env, true);
-                
+
                 if (result instanceof Boolean) {
                     return (Boolean) result;
                 }

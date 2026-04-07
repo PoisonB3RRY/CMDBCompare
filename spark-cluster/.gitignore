@@ -1,0 +1,3 @@
+# Copied by Maven after package; do not commit binary
+data/cmdb-compare-service-*-spark-job.jar
+data/out/*.xlsx
