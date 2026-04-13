@@ -58,9 +58,15 @@ public class CompareService {
         
         String outputDir = request.getOutputDirPath();
         if (outputDir == null || outputDir.isEmpty()) {
-            outputDir = "obs://your-default-bucket/results/"; // Should ideally come from config
+            outputDir = "file:///data/results/";
         }
-        args.add(outputDir);
+
+        // Generate a deterministic full path so we can save it in DB now
+        String fileName = "Compare_Result_" + taskId + ".xlsx";
+        String fullResultPath = outputDir.endsWith("/") ? outputDir + fileName : outputDir + "/" + fileName;
+        
+        task.setResultPath(fullResultPath);
+        args.add(fullResultPath);
         
         args.add(obsEndpoint);
         args.add(obsAccessKey);

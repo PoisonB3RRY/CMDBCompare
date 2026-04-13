@@ -3,7 +3,9 @@
 
 services:
   spark-master:
-    image: apache/spark:3.3.1
+    build:
+      context: ./spark
+      dockerfile: Dockerfile
     container_name: spark-master
     hostname: spark-master
     # 强制使用 root 避免权限问题
@@ -18,7 +20,9 @@ services:
       - spark-network
 
   spark-worker-1:
-    image: apache/spark:3.3.1
+    build:
+      context: ./spark
+      dockerfile: Dockerfile
     container_name: spark-worker-1
     # 关键：解决 java.nio.file.AccessDeniedException: /opt/spark/work
     user: root
@@ -36,7 +40,9 @@ services:
       - spark-network
 
   spark-worker-2:
-    image: apache/spark:3.3.1
+    build:
+      context: ./spark
+      dockerfile: Dockerfile
     container_name: spark-worker-2
     user: root
     command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
@@ -65,6 +71,7 @@ services:
       # 告诉 Livy 去哪里找 Spark Master
       - LIVY_SERVER_SESSION_FACTORY=process
       - SPARK_MASTER=spark://spark-master:7077
+
     volumes:
       - ./data:/data
     depends_on:

@@ -48,8 +48,17 @@ public class SparkCompareJob {
         String ak = args[8];
         String sk = args[9];
 
+        // ---- Workaround: Force NIO DirectByteBuffer MBean registration ----
+        // In some containerized JVMs (Java 11+), the java.nio:type=BufferPool,name=direct
+        // MBean is not registered until the first direct ByteBuffer is allocated.
+        // Spark 3.3.x crashes in ExecutorMetricType if the MBean is missing.
+        // Allocating and immediately releasing a tiny direct buffer triggers registration.
+        java.nio.ByteBuffer.allocateDirect(1).clear();
+        // -------------------------------------------------------------------
+
         SparkConf conf = new SparkConf().setAppName("Spark-Compare-Job-Remote");
         SparkSession spark = SparkSession.builder().config(conf).getOrCreate();
+
 
         // Configure OBS
         org.apache.hadoop.conf.Configuration hadoopConf = spark.sparkContext().hadoopConfiguration();
@@ -136,7 +145,7 @@ public class SparkCompareJob {
     }
 
     private static void export(SparkSession spark, Dataset<Row> sOut, Dataset<Row> tOut, Dataset<Row> diff,
-            String outDir) throws Exception {
+            String outArg) throws Exception {
         // 创建支持流式写入的 Workbook，避免内存中积压过多导致宕机
         SXSSFWorkbook wb = new SXSSFWorkbook(100);
 
@@ -154,8 +163,13 @@ public class SparkCompareJob {
         writeSheet(wb, "Sheet2_Target_Filtered", tOut, null);
         writeSheet(wb, "Sheet3_Differences", diff, diffStyle);
 
-        String ts = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
-        String pathStr = (outDir.endsWith("/") ? outDir : outDir + "/") + "Compare_Result_" + ts + ".xlsx";
+        String pathStr;
+        if (outArg.toLowerCase().endsWith(".xlsx")) {
+            pathStr = outArg;
+        } else {
+            String ts = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+            pathStr = (outArg.endsWith("/") ? outArg : outArg + "/") + "Compare_Result_" + ts + ".xlsx";
+        }
 
         org.apache.hadoop.conf.Configuration conf = spark.sparkContext().hadoopConfiguration();
         org.apache.hadoop.fs.Path path = new org.apache.hadoop.fs.Path(pathStr);

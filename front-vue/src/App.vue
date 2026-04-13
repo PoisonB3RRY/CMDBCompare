@@ -70,22 +70,24 @@
 
     <!-- STEP 3: Status & Result -->
     <a-card v-if="currentStep === 3" title="Processing Task" class="card">
-      <div v-if="taskStatus !== 'SUCCESS' && taskStatus !== 'FAILED'" style="text-align: center; padding: 20px;">
+      <div v-if="taskStatus === 'RUNNING' || taskStatus === 'SUBMITTED'" style="text-align: center; padding: 20px;">
         <a-spin size="large" />
         <h3 style="color: white; margin-top: 20px;">Spark Batch is Running... (ID: {{ taskId }})</h3>
-        
-        <a-button @click="fetchLatestDownload" style="margin-top: 20px; border-color: #64748b; color: #cbd5e1" ghost>
-          If polling stuck, attempt to fetch Latest Result directly
-        </a-button>
       </div>
       
       <div v-if="taskStatus === 'SUCCESS' || taskStatus === 'FINISHED'" style="text-align: center; padding: 20px;">
          <CheckCircleOutlined style="font-size: 48px; color: #4ade80;" />
          <h3 style="color: white; margin-top: 20px;">Reconciliation Completed Successfully!</h3>
          
-         <a-button type="primary" size="large" @click="fetchLatestDownload" style="margin-top: 20px;">
+         <a-button type="primary" size="large" @click="downloadByTaskId" style="margin-top: 20px;">
             <DownloadOutlined /> Download Excel Report
          </a-button>
+      </div>
+
+      <div v-if="taskStatus === 'FAILED'" style="text-align: center; padding: 20px;">
+         <ExclamationCircleOutlined style="font-size: 48px; color: #f87171;" />
+         <h3 style="color: #f87171; margin-top: 20px;">Spark Job Failed</h3>
+         <p style="color: #94a3b8;">The comparison task encountered an error. Please check the Spark logs for details.</p>
       </div>
 
       <div class="actions" style="margin-top: 40px; justify-content: center;">
@@ -98,7 +100,7 @@
 <script setup lang="ts">
 import { ref, reactive, onUnmounted } from 'vue';
 import { message } from 'ant-design-vue';
-import { InboxOutlined, RocketOutlined, PlayCircleOutlined, CheckCircleOutlined, DownloadOutlined } from '@ant-design/icons-vue';
+import { InboxOutlined, RocketOutlined, PlayCircleOutlined, CheckCircleOutlined, DownloadOutlined, ExclamationCircleOutlined } from '@ant-design/icons-vue';
 import axios from 'axios';
 
 const apiBase = 'http://localhost:8888/api';
@@ -189,13 +191,12 @@ const startPolling = () => {
   }, 3000); // 3 seconds
 };
 
-const fetchLatestDownload = async () => {
-   try {
-      const res = await axios.get(`${apiBase}/files/latest-result`);
-      window.open(`${apiBase}/files/download?fileName=${res.data.fileName}`);
-   } catch(err) {
-      message.error('Comparison not finished yet or no result found.');
+const downloadByTaskId = () => {
+   if (!taskId.value) {
+      message.error('No task ID available.');
+      return;
    }
+   window.open(`${apiBase}/compare/download/${taskId.value}`);
 };
 
 const resetForm = () => {

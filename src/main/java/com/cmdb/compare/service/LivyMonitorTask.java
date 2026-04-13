@@ -39,7 +39,6 @@ public class LivyMonitorTask {
                 if ("success".equalsIgnoreCase(state)) {
                     task.setStatus("FINISHED");
                     task.setEndTime(LocalDateTime.now());
-                    // Duration calculation omitted for brevity
                     taskMapper.updateById(task);
                 } else if ("dead".equalsIgnoreCase(state) || "error".equalsIgnoreCase(state)) {
                     task.setStatus("FAILED");
@@ -48,6 +47,13 @@ public class LivyMonitorTask {
                     taskMapper.updateById(task);
                 }
                 // If it's starting/running, we just keep it as RUNNING
+            } catch (org.springframework.web.client.HttpClientErrorException.NotFound e) {
+                // Batch was deleted from Livy (e.g., after cluster restart)
+                System.out.println("Livy Batch ID [" + task.getLivyBatchId() + "] no longer exists, marking task as FAILED.");
+                task.setStatus("FAILED");
+                task.setEndTime(LocalDateTime.now());
+                task.setErrorMsg("Livy batch not found (deleted or cluster restarted)");
+                taskMapper.updateById(task);
             } catch (Exception e) {
                 // Potential network error during polling
                 e.printStackTrace();

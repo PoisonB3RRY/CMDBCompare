@@ -5,9 +5,14 @@ import com.cmdb.compare.mapper.TaskMapper;
 import com.cmdb.compare.model.CompareRequest;
 import com.cmdb.compare.service.CompareService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -51,5 +56,37 @@ public class CompareController {
             return ResponseEntity.notFound().build();
         }
         return ResponseEntity.ok(task);
+    }
+
+    /**
+     * Downloads the comparison result Excel file for a specific task.
+     * Extracts the filename from the task's resultPath and serves it
+     * from the local spark-cluster/data/results/ directory.
+     */
+    @GetMapping("/download/{taskId}")
+    public ResponseEntity<Resource> downloadResult(@PathVariable String taskId) {
+        ReconciliationTask task = taskMapper.selectById(taskId);
+        if (task == null || task.getResultPath() == null || task.getResultPath().isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        // resultPath is like "file:///data/results/Compare_Result_xxx.xlsx"
+        // Extract just the filename
+        String resultPath = task.getResultPath();
+        String fileName = resultPath.substring(resultPath.lastIndexOf('/') + 1);
+
+        try {
+            // The Docker volume maps ./spark-cluster/data to /data inside the container
+            Path file = Paths.get("./spark-cluster/data/results").resolve(fileName);
+            Resource resource = new UrlResource(file.toUri());
+            if (resource.exists() && resource.isReadable()) {
+                return ResponseEntity.ok()
+                        .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"")
+                        .body(resource);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return ResponseEntity.notFound().build();
     }
 }
